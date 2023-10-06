@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск СНИЛСа</title>
+</head>
+<body>
+<h1>Поиск СНИЛСа</h1>
+<form action="/findsnils" method="post" enctype="multipart/form-data" onsubmit="return validateSnils()">
+    <!-- Поле ввода СНИЛСа -->
+    <label for="snils">СНИЛС:</label>
+    <input type="text" id="snils" name="snils" required><br><br>
+
+    <!-- Кнопка "Найти" -->
+    <button type="submit">Найти</button>
+</form>
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <!-- Кнопка "Обзор" для выбора файла -->
+    <label for="file">Выберите файл:</label>
+    <input type="file" id="file" name="file" required><br><br>
+
+    <!-- Кнопка "Отправить файл" -->
+    <button type="button" onclick="uploadFile()">Отправить файл</button>
+</form>
+<div id="result"></div>
+
+<script>
+    function validateSnils() {
+        var snilsField = document.getElementById("snils");
+        var snilsValue = snilsField.value.replace(/[^0-9]/g, ""); // Удаляем все символы, кроме цифр
+        if (snilsValue.length !== 11) {
+            $("#result").html("<p class='error'>СНИЛС должен содержать 11 цифр.</p>");
+            return false; // Остановка отправки формы
+        }
+
+        // Вычисляем контрольную сумму
+        var sum = 0;
+        for (var i = 0; i < 9; i++) {
+            var digit = parseInt(snilsValue.charAt(i));
+            sum += digit * (9 - i);
+        }
+
+        var expectedCheckDigits = parseInt(snilsValue.substr(9, 2));
+        var calculatedCheckDigits = sum < 100 ? sum : sum % 101;
+        if (calculatedCheckDigits === 100) {
+            calculatedCheckDigits = 0;
+        }
+
+        if (expectedCheckDigits !== calculatedCheckDigits) {
+            $("#result").html("<p class='error'>Неверная контрольная сумма СНИЛСа.</p>");
+            return false; // Остановка отправки формы
+        }
+
+        // Выполняем AJAX-запрос для поиска СНИЛСа
+        $.ajax({
+            type: "POST",
+            url: "/findsnils",
+            data: { snils: snilsValue },
+            dataType: "json",
+            success: function (response) {
+                if (response.status === "success") {
+                    $("#result").html("<p>" + response.message + "</p>");
+                } else {
+                    $("#result").html("<p class='error'>" + response.message + "</p>");
+                }
+            },
+            error: function () {
+                $("#result").html("<p class='error'>Произошла ошибка при выполнении запроса.</p>");
+            }
+        });
+
+        return false; // Чтобы предотвратить отправку формы
+    }
+
+
+    function uploadFile() {
+        var fileInput = document.getElementById("file");
+        var file = fileInput.files[0];
+        if (!file) {
+            alert("Выберите файл для загрузки.");
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append("file", file);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/findsnils/upload", true);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                // Обработка успешного ответа от сервера
+                var resultDiv = document.getElementById("result");
+                resultDiv.innerHTML = xhr.responseText;
+            } else {
+                alert("Произошла ошибка при загрузке файла.");
+            }
+        };
+        xhr.send(formData);
+    }
+</script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+</html>
